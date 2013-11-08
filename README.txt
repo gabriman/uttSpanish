@@ -1,5 +1,6 @@
 UAM Text Tools adaptation to Spanish
-Gabriel Rodríguez Rodríguez
+
+
 1. Learn and try examples with UAM text tools http://utt.amu.edu.pl/
 2. Search for a spanish morphologic dictionary
 ? We found it in the FreeLing project http://nlp.lsi.upc.edu/freeling/
