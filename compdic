@@ -1,0 +1,179 @@
+	
+no_of_parts=0
+
+while [ $# -gt 2 ]
+do
+  case $1
+  in
+    -p)
+      no_of_parts=$2
+      shift 2
+    ;;
+
+    *)
+      echo "The arguments to use are"
+      echo "-p: number of parts"
+      shift 1
+    ;;
+  esac
+done
+
+if [ $# -lt 2 ]
+then
+    echo "Usage:"
+    echo "        compdic [-p <parts>] <wordlist> <automaton>"
+    echo "where"
+    echo "    <wordlist> - file containig a list of words, one per line, iso-8859-2 encoded"
+    echo "    <automaton> - a file to which the compiled automaton (cor/kor format) shoul be written"
+    exit 0
+fi	
+
+if [ $no_of_parts -eq 0 ]
+then
+    no_of_parts=$(( `cat $1 | wc -l` / 75000 + 1 ))
+fi
+
+
+echo number of parts: $no_of_parts
+
+
+tempdir=`mktemp -d /tmp/compdic.XXXXXX`
+
+alphabet=`tempfile -d $tempdir`
+
+cat <<EOF > $alphabet
+<eps> 0
+a 1
+A 2
+á 3
+Á 4
+b 6
+B 7
+c 8
+C 9
+é 10
+É 11
+d 12
+D 13
+e 14
+E 15
+f 19
+F 20
+g 21
+G 22
+h 23
+H 24
+i 25
+I 26
+j 27
+J 28
+k 29
+K 30
+l 31
+L 32
+í 33
+Í 34
+m 35
+M 36
+n 37
+N 38
+ñ 39
+Ñ 40
+o 41
+O 42
+ó 44
+Ó 45
+p 46
+P 47
+q 48
+Q 49
+r 50
+R 51
+s 52
+S 53
+ú 54
+Ú 55
+t 56
+T 57
+u 58
+U 59
+v 61
+V 62
+w 63
+W 64
+x 65
+X 66
+y 67
+Y 68
+z 69
+Z 70
+0 75
+1 76
+2 77
+3 78
+4 79
+5 80
+6 81
+7 82
+8 83
+9 84
+_ 85
+- 86
+? 87
+! 88
+~ 89
+; 90
+, 91
+/ 92
+* 93
++ 94
+. 95
+ü 96
+· 97
+ê 98
+à 99
+ç 100
+ö 101
+ï 102
+º 103
+è 104
+ë 105
+ä 106
+Å 107
+EOF
+
+
+no_of_lines=$(( (`cat $1 | wc -l` / $no_of_parts) + 1 ))
+
+split -l $no_of_lines $1 $tempdir/part.
+
+automaton=$tempdir/output.fst
+
+cat <<EOF | fstcompile --acceptor --isymbols=$alphabet > $automaton
+EOF
+
+n=0
+
+for f in $tempdir/part.*
+do
+    temp1=`tempfile -d $tempdir`
+    temp2=`tempfile -d $tempdir`
+    temp3=`tempfile -d $tempdir`
+
+    n=$(( $n + 1 ))
+    echo processing part $n
+
+    cat $f |\
+    lst2fstext |\
+    fstcompile --acceptor --isymbols=$alphabet |\
+    fstrmepsilon |\
+    fstdeterminize > $temp1
+    fstminimize $temp1 $temp2
+
+    fstunion $automaton $temp2 | fstrmepsilon | fstdeterminize > $temp3
+    fstminimize $temp3 $automaton
+done
+
+cat $automaton | fsttopsort | fstprint --acceptor --isymbols=$alphabet > aaaa
+cat aaaa | fsm2aut | aut2fsa > $2
+rm -r $tempdir
